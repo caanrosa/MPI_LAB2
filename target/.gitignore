@@ -1,0 +1,3 @@
+*.txt
+wordFreqMPI.py
+wordFreqDask.py
