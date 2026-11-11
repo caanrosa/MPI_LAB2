@@ -1,6 +1,3 @@
-dataset/*.*
+dataset/*
+results/*
 spanish_words.info
-.DS_Store
-word_lab/.DS_Store
-.DS_Store
-.DS_Store
