@@ -60,10 +60,36 @@ unos: 88794, otra: 83901, vosotros: 61617, mios: 58420, tuya: 56635.
 
 Recommended N = 4, so p = 4.
 
-### b. MPI v1 timing results
+### b. MPI v1 timing results (p = 4)
 
+| Run | Total (s) | Setup (s) | Max local (s) | LI |
+|---|---|---|---|---|
+| 1 | 29.492 | 7.87 | 21.623 | 1.0315 |
+| 2 | 23.107 | 7.04 | 16.087 | 1.0438 |
+| 3 | 23.755 | 5.87 | 17.888 | 1.0512 |
+| 4 | 22.607 | 6.67 | 15.932 | 1.0593 |
+| 5 | 22.805 | 5.51 | 17.293 | 1.0475 |
 
-### c. Load imbalance evidence
+T_p = 24.35 s (std 2.91 s), S_p = 34.39 / 24.35 = 1.41, E_p = 1.41 / 4 = 0.35.
+Run 1 is a slow outlier. Without it: T_p = 23.07 s, S_p = 1.49, E_p = 0.37.
+All runs matched the baseline output (`MATCHES_BASELINE=True`).
+
+### c. Load imbalance evidence (v1)
+
+Mean over 5 runs:
+
+| Rank | Files | Tokens | Mean local time (s) |
+|---|---|---|---|
+| 0 | 750 | 10,803,859 | 16.57 |
+| 1 | 750 | 12,156,824 | 17.77 |
+| 2 | 750 | 10,816,979 | 16.49 |
+| 3 | 750 | 11,173,796 | 17.13 |
+
+Mean LI = 1.047 (range 1.032-1.059), mean relative spread = 0.083.
+Rank 1, which received the most tokens, was the slowest in all 5 runs.
+Perfect balance would reduce the slowest process by ~0.78 s (about 3 % of T_p).
+Setup time (reading the query, listing files, bcast, scatter) was ~6.6 s on
+average (27 % of T_p) and is spent by rank 0 while the other ranks wait.
 
 
 ### d. MPI v2 results

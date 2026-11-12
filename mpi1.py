@@ -118,62 +118,66 @@ def main():
     my_files = comm.scatter(file_blocks, root=0)
 
     # Step 5: local counting (timed per process).
+    # setup_time = everything before counting starts (read query, list files,
+    # bcast, scatter, waiting for rank 0).
+    setup_time = MPI.Wtime() - t_start
     t_local_start = MPI.Wtime()
     local_freq, local_tokens = count_in_files(my_files, target_set)
     local_time = MPI.Wtime() - t_local_start
-
+ 
     # Step 6: gather partial results in rank 0.
-    partial = (rank, len(my_files), local_tokens, local_time, dict(local_freq))
+    partial = (rank, len(my_files), local_tokens, local_time,
+               setup_time, dict(local_freq))
     gathered = comm.gather(partial, root=0)
-
+ 
     # Step 7: rank 0 builds the global result.
     if rank == 0:
         freq_global = Counter()
         stats = []
-        for r, n_files, n_tokens, t_local, freq in gathered:
+        for r, n_files, n_tokens, t_local, t_setup, freq in gathered:
             freq_global.update(freq)
-            stats.append((r, n_files, n_tokens, t_local))
-
+            stats.append((r, n_files, n_tokens, t_local, t_setup))
+ 
         elapsed = MPI.Wtime() - t_start
-
+ 
         times = [s[3] for s in stats]
         mean_t = sum(times) / len(times)
         li = max(times) / mean_t if mean_t > 0 else float("nan")
         spread = (max(times) - min(times)) / mean_t if mean_t > 0 else float("nan")
-
+ 
         # Sort by count desc, then alphabetically for deterministic ties.
         top_words = sorted(freq_global.items(), key=lambda kv: (-kv[1], kv[0]))[:TOP_N]
-
+ 
         results_path = os.path.join(dataset_dir, "mpi1_results.csv")
         with open(results_path, "w", encoding="utf-8") as f:
             f.write("palabra,conteo\n")
             for word in sorted(freq_global):
                 f.write(f"{word},{freq_global[word]}\n")
-
+ 
         matches = compare_with_baseline(
             freq_global, os.path.join(dataset_dir, "baseline_results.csv")
         )
-
+ 
         print(f"MPI version 1 (static distribution), p = {size}")
         print(f"Files processed: {sum(s[1] for s in stats)}")
         print(f"Tokens read: {sum(s[2] for s in stats)}")
         print(f"Total occurrences found: {sum(freq_global.values())}\n")
-
+ 
         print("Per-process stats:")
-        for r, n_files, n_tokens, t_local in stats:
+        for r, n_files, n_tokens, t_local, t_setup in stats:
             print(f"  rank {r}: files={n_files}, tokens={n_tokens}, "
-                  f"local_time={t_local:.6f} s")
-
+                  f"setup_time={t_setup:.6f} s, local_time={t_local:.6f} s")
+ 
         print(f"\nLOAD_IMBALANCE_LI={li:.4f}")
         print(f"RELATIVE_SPREAD={spread:.4f}")
         print(f"MATCHES_BASELINE={matches}\n")
-
+ 
         print(f"Top {TOP_N} query words in the corpus:")
         for word, count in top_words:
             print(f"  {word}: {count}")
-
+ 
         print(f"\nEXECUTION_TIME={elapsed:.6f}")
-
-
+ 
+ 
 if __name__ == "__main__":
     main()
