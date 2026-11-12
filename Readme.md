@@ -1,83 +1,84 @@
-# Word Lab
+# Parallel Word Counting in a Text Corpus with MPI
 
-This repository contains a Python script that generates text files with random Spanish words. The generated files can be used for various purposes, such as testing, data analysis, or language learning.
+## 1. Problem Description
+Count how many times each word in `dataset/consulta.txt` appears
+in a corpus of 3000 files `file_XXXX.txt`, and report the
+top 10. Three implementations are compared: a sequential baseline, an MPI
+version with static file distribution (v1), and an MPI version with improved
+load balance (v2).
 
-## Usage
-To generate the text files, run the `generator.py` script. 
+## 2. Environment and Execution Instructions
 
-```bash
-python generator.py
-```
+**Hardware/software:** HP 14-dq2504la, Intel Core i3-1115G4 (2 cores / 4
+threads), 16 GB RAM, Windows 11, Docker Desktop (WSL2), image
+`augustosalazar/slim-mpi:2`. Project is located in OneDrive.
 
-To run with docker
+### a. Experimental plan
+1. Generate the dataset with `generator.py` (seed 42, reproducible).
+2. Run the sequential baseline 5 times; the first run is a cold-cache
+   warm-up and is excluded from T_seq.
+3. Determine p with `Detectar_procesos_mpi.py` (result: p = 4).
+4. Run MPI v1 at p = 4, at least 3 runs; record total and per-process times.
+5. Run MPI v2 under the same conditions.
+6. Compute T_p, S_p = T_seq / T_p, E_p = S_p / p and LI = max(t_i)/mean(t_i).
 
-```bash
-docker run --rm -v "$(pwd)":/app augustosalazar/slim-mpi:2 python /app/generator.py
-```
-
-  or for windows command prompt:
-
-```bash
-docker run --rm -v "%cd%:/app" augustosalazar/slim-mpi:2 python /app/generator.py
-```
-
-
-The script will create a specified number of text files in the `dataset` directory, each containing a random selection of Spanish words. The words are sourced from the `spanish_words.info` file, which should be placed in the same directory as the script.
-
-On baseline_secuencial.py you can find a sequential implementation that goes through the consulta.txt file and seraches each of its words on the rest of the files to find the top 10 most common words
+### b. Sequential baseline
 
 
-```bash
-python baseline_secuencial.py
-```
+### c. MPI version 1
 
-To run with docker
 
-```bash
-docker run --rm -v "$(pwd)":/app augustosalazar/slim-mpi:2 python /app/baseline_secuencial.py
-```
+### d. Test procedure
 
-or for windows command prompt:
 
-```bash
-docker run --rm -v "%cd%:/app" augustosalazar/slim-mpi:2 python /app/baseline_secuencial.py
-```
+## 3. Experimental Plan Execution
 
-A sample of the output:
+### a. Sequential baseline timing
+| Run | Time (s) | Note |
+|---|---|---|
+| 1 | 110.155 | First time, excluded, reason: cache |
+| 2 | 35.933 | |
+| 3 | 38.959 | |
+| 4 | 30.330 | |
+| 5 | 32.326 | |
 
-```bash
-~/development/MPI/word_lab python3 baseline_secuencial.py
-Tiempo de ejecución: 5.271514 segundos
+T_seq = 34.39 s (mean of runs 2-5, std is approximately 3.8 s).
 
-Dataset procesado: /Users/augustosalazar/development/MPI/word_lab/dataset
-Archivo de consulta: consulta.txt
-Archivos procesados: 3000
-Total de tokens leídos: 44951458
-Total de ocurrencias encontradas: 3631778
-Resultados guardados en: /Users/augustosalazar/development/MPI/word_lab/dataset/baseline_results.csv
+Reference top 10 (3000 files, 44,951,458 tokens, 3,631,778 occurrences):
+a: 785774, para: 392156, sus: 228913, otros: 105530, ante: 99832,
+unos: 88794, otra: 83901, vosotros: 61617, mios: 58420, tuya: 56635.
 
-Top 10 palabras de consulta en el corpus:
-  a: 785774
-  para: 392156
-  sus: 228913
-  otros: 105530
-  ante: 99832
-  unos: 88794
-  otra: 83901
-  vosotros: 61617
-  mios: 58420
-  tuya: 56635
-```
+### Choice of p
+`Detectar_procesos_mpi.py` (prime counting, 3 measurements per N):
 
-A batch script is provided to run all the experiments automatically:
+| N | Median (s) |
+|---|---|
+| 1 | 6.408 |
+| 2 | 5.793 |
+| 3 | 7.018 |
+| 4 | 5.050 |
 
-```bash
-docker run --rm -v "$(pwd)":/app augustosalazar/slim-mpi:2 sh /app/run_all.sh
-```
+Recommended N = 4, so p = 4.
 
-or for windows command prompt:
+### b. MPI v1 timing results
 
-```bash
-docker run --rm -v "%cd%:/app" augustosalazar/slim-mpi:2 sh /app/run_all.sh
-```
+
+### c. Load imbalance evidence
+
+
+### d. MPI v2 results
+
+
+## 4. Analysis
+### a. Parallel performance
+
+
+### b. Load balance
+
+
+### c. Limitations
+
+
+
+## 5. Conclusions
 
