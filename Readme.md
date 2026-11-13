@@ -92,8 +92,48 @@ Setup time (reading the query, listing files, bcast, scatter) was ~6.6 s on
 average (27 % of T_p) and is spent by rank 0 while the other ranks wait.
 
 
-### d. MPI v2 results
+### d. MPI version 2: how it corrects the imbalance, and results
 
+**Design.** Version 2 changes two things:
+1. *Size-aware assignment (LPT).* Files are sorted by size (bytes) and each
+   one is given, largest first, to the process with the fewest assigned bytes.
+   Every process computes the same deterministic assignment, so no `scatter`
+   is needed.
+2. *Shorter sequential setup.* Rank 0 only lists file names (one `listdir`,
+   no per-file `isfile`). The `getsize` calls are split among all processes
+   (750 files each) and shared with `allgather`.
+
+**Timing results (p = 4).**
+
+| Run | Total (s) | Setup (s) | Max local (s) | LI |
+|---|---|---|---|---|
+| 1 | 22.158 | 1.38 | 20.765 | 1.0074 |
+| 2 | 21.320 | 1.59 | 19.726 | 1.0158 |
+| 3 | 19.587 | 1.88 | 17.709 | 1.0083 |
+| 4 | 18.155 | 1.54 | 16.620 | 1.0076 |
+| 5 | 18.269 | 1.33 | 16.938 | 1.0117 |
+
+T_p = 19.90 s (std 1.80 s), S_p = 34.39 / 19.90 = 1.73, E_p = 0.43,
+mean LI = 1.010. All runs matched the baseline output. A separate test run
+(17.62 s) was done before the 5 reported runs and is not included.
+
+**Comparison.**
+
+| Metric | v1 | v2 |
+|---|---|---|
+| T_p (s) | 24.35 | 19.90 |
+| Speedup | 1.41 | 1.73 |
+| Efficiency | 0.35 | 0.43 |
+| LI | 1.047 | 1.010 |
+| Mean setup (s) | 6.59 | 1.54 |
+| Mean of max local time (s) | 17.77 | 18.35 |
+
+Bytes per process are equal to within 50 bytes (about 68.76 MB each) and
+tokens to within 0.02 % (about 11.24 M each).
+The 4.45 s reduction in T_p is explained by the 5.05 s reduction in setup.
+The balance improvement could save at most about 0.6 s, which is below the
+run-to-run noise, and the counting phase was actually 0.58 s slower on average in
+v2 for reasons not isolated here.
 
 ## 4. Analysis
 ### a. Parallel performance
