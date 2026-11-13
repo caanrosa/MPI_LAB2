@@ -21,15 +21,60 @@ threads), 16 GB RAM, Windows 11, Docker Desktop (WSL2), image
 4. Run MPI v1 at p = 4, at least 3 runs; record total and per-process times.
 5. Run MPI v2 under the same conditions.
 6. Compute T_p, S_p = T_seq / T_p, E_p = S_p / p and LI = max(t_i)/mean(t_i).
+7. Check that every run reproduces the baseline output.
 
 ### b. Sequential baseline
 
+`baseline_secuencial.py` (provided, unchanged) loads the query words into a
+set and iterates over every `file_*.txt` in `dataset/`. For each line it
+splits the text into tokens, lowercases them and, for every token that is in
+the query set, increments a `Counter`. It prints the elapsed time (measured
+with `time.perf_counter` around the counting), the top 10 words, and writes
+`dataset/baseline_results.csv`.
 
+```powershell
+docker run --rm -v "${pwd}:/app" augustosalazar/slim-mpi:2 python /app/baseline_secuencial.py
+```
 ### c. MPI version 1
 
+`mpi1.py` follows the steps of the assignment:
+
+1. rank 0 reads `consulta.txt`;
+2. rank 0 broadcasts the query words (`comm.bcast`);
+3. rank 0 lists the `file_*.txt` files (sorted);
+4. the files are split into `p` contiguous blocks whose sizes differ by at
+   most one file, and distributed with `comm.scatter`. This balances the
+   number of files, not the amount of work;
+5. each process counts the query words in its own files (same counting logic
+   as the baseline);
+6. partial results are collected in rank 0 with `comm.gather`;
+7. rank 0 merges them, prints the top 10 and compares the result with
+   `dataset/baseline_results.csv`.
+
+Timing: the clock starts after a `Barrier` and stops in rank 0 after the merge,
+so it includes everything except process launch. Each process also reports its
+number of assigned files, tokens, `setup_time` (everything before counting
+starts) and `local_time` (counting only). The program prints `LOAD_IMBALANCE_LI`,
+`RELATIVE_SPREAD`, `MATCHES_BASELINE` and `EXECUTION_TIME=<seconds>`.
 
 ### d. Test procedure
 
+```powershell
+# 1. Dataset
+docker run --rm -v "${pwd}:/app" augustosalazar/slim-mpi:2 python /app/generator.py
+
+# 2. Baseline (5 runs; the first one is the warm-up)
+docker run --rm -v "${pwd}:/app" augustosalazar/slim-mpi:2 python /app/baseline_secuencial.py
+
+# 3. Choice of p
+docker run --rm -v "${pwd}:/app" augustosalazar/slim-mpi:2 python /app/Detectar_procesos_mpi.py
+
+# 4. MPI v1 and v2, p = 4, 5 runs each (logs in logs/mpi1 and logs/mpi2)
+mkdir logs\mpi1 -Force
+1..5 | ForEach-Object { docker run --rm -v "${pwd}:/app" augustosalazar/slim-mpi:2 mpirun --allow-run-as-root --oversubscribe -np 4 python /app/mpi1.py | Tee-Object -FilePath "logs\mpi1\mpi1_run$_.log" }
+mkdir logs\mpi2 -Force
+1..5 | ForEach-Object { docker run --rm -v "${pwd}:/app" augustosalazar/slim-mpi:2 mpirun --allow-run-as-root --oversubscribe -np 4 python /app/mpi2.py | Tee-Object -FilePath "logs\mpi2\mpi2_run$_.log" }
+```
 
 ## 3. Experimental Plan Execution
 
